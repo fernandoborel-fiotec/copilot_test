@@ -23,9 +23,11 @@ def autenticar_usuario(username, password):
     try:
         password_matches = check_password_hash(stored_password_hash, password)
     except ValueError:
-        logging.warning("Hash de senha inválido para usuário informado.")
+        logging.debug("Falha na verificação do hash de senha.")
         return False
-    return bool(row) and password_matches
+    if not row:
+        return False
+    return password_matches
 
 
 @app.route("/ping")
