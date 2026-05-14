@@ -1,13 +1,18 @@
 import sqlite3
 import os
 import subprocess
-from flask import Flask, request, make_response
+import ipaddress
+from flask import Flask, request
+from markupsafe import escape
+
 app = Flask(__name__)
+
+
 def autenticar_usuario(username, password):
-    conn = sqlite3.connect('usuarios.db')
+    conn = sqlite3.connect("usuarios.db")
     cursor = conn.cursor()
-    query = f"SELECT * FROM users WHERE username = '{username}' AND password '{password}'"
-    cursor.execute(query)
+    query = "SELECT 1 FROM users WHERE username = ? AND password = ?"
+    cursor.execute(query, (username, password))
     result = cursor.fetchone()
     conn.close()
     return result is not None
@@ -16,20 +21,32 @@ def autenticar_usuario(username, password):
 @app.route("/ping")
 def ping():
     ip = request.args.get("ip", "")
-    output = subprocess.getoutput(f"ping -c 1 {ip}")
+    try:
+        validated_ip = str(ipaddress.ip_address(ip))
+    except ValueError:
+        return "<pre>Parâmetro 'ip' inválido.</pre>", 400
+
+    process = subprocess.run(
+        ["ping", "-c", "1", validated_ip],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    output = process.stdout or process.stderr
     return f"<pre>{output}</pre>"
 
 
 @app.route("/debug")
 def debug():
-    return f"SECRET_KEY={os.environ.get('SECRET_KEY')}"
+    return "Endpoint de debug desabilitado.", 403
 
 
 @app.route("/comente")
 def comente():
     comentario = request.args.get("comentario", "")
-    return f"<h1>Comentário recebido:</h1><p>{comentario}</p>"
+    return f"<h1>Comentário recebido:</h1><p>{escape(comentario)}</p>"
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
