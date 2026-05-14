@@ -2,8 +2,9 @@ import sqlite3
 import os
 import subprocess
 import ipaddress
-from flask import Flask, request
+from flask import Flask, request, make_response
 from markupsafe import escape
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 
@@ -11,11 +12,17 @@ app = Flask(__name__)
 def autenticar_usuario(username, password):
     conn = sqlite3.connect("usuarios.db")
     cursor = conn.cursor()
-    query = "SELECT 1 FROM users WHERE username = ? AND password = ?"
-    cursor.execute(query, (username, password))
+    query = "SELECT password FROM users WHERE username = ?"
+    cursor.execute(query, (username,))
     result = cursor.fetchone()
     conn.close()
-    return result is not None
+    if not result:
+        return False
+    stored_password_hash = result[0]
+    try:
+        return check_password_hash(stored_password_hash, password)
+    except ValueError:
+        return False
 
 
 @app.route("/ping")
@@ -45,7 +52,9 @@ def debug():
 @app.route("/comente")
 def comente():
     comentario = request.args.get("comentario", "")
-    return f"<h1>Comentário recebido:</h1><p>{escape(comentario)}</p>"
+    response = make_response(f"<h1>Comentário recebido:</h1><p>{escape(comentario)}</p>")
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
 
 
 if __name__ == "__main__":
