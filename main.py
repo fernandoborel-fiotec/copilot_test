@@ -2,12 +2,14 @@ import sqlite3
 import os
 import subprocess
 import ipaddress
+import logging
 from flask import Flask, request, make_response
 from markupsafe import escape
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 DUMMY_PASSWORD_HASH = generate_password_hash("invalid-password-for-timing-mitigation")
+PING_TIMEOUT_SECONDS = 5
 
 
 def autenticar_usuario(username, password):
@@ -21,6 +23,7 @@ def autenticar_usuario(username, password):
     try:
         password_matches = check_password_hash(stored_password_hash, password)
     except ValueError:
+        logging.warning("Hash de senha inválido para usuário informado.")
         return False
     return bool(row) and password_matches
 
@@ -40,7 +43,7 @@ def ping():
             ["ping", "-c", "1", validated_ip],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=PING_TIMEOUT_SECONDS,
             check=False,
         )
     except subprocess.TimeoutExpired:
