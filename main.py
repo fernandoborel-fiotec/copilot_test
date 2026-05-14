@@ -15,14 +15,14 @@ def autenticar_usuario(username, password):
     cursor = conn.cursor()
     query = "SELECT password FROM users WHERE username = ?"
     cursor.execute(query, (username,))
-    result = cursor.fetchone()
+    row = cursor.fetchone()
     conn.close()
-    stored_password_hash = result[0] if result else DUMMY_PASSWORD_HASH
+    stored_password_hash = row[0] if row else DUMMY_PASSWORD_HASH
     try:
         password_matches = check_password_hash(stored_password_hash, password)
     except ValueError:
         return False
-    return bool(result) and password_matches
+    return bool(row) and password_matches
 
 
 @app.route("/ping")
@@ -58,6 +58,6 @@ def comente():
 
 
 if __name__ == "__main__":
-    if os.environ.get("FLASK_ENV", "").lower() == "production":
+    if os.environ.get("APP_ENV", "").lower() == "production":
         raise RuntimeError("Use um servidor WSGI em produção (ex.: gunicorn).")
     app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
