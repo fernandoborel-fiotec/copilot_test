@@ -31,17 +31,27 @@ def ping():
     try:
         validated_ip = str(ipaddress.ip_address(ip))
     except ValueError:
-        return "<pre>Parâmetro 'ip' inválido.</pre>", 400
+        response = make_response("<pre>Parâmetro 'ip' inválido.</pre>", 400)
+        response.headers["Content-Type"] = "text/html; charset=utf-8"
+        return response
 
-    process = subprocess.run(
-        ["ping", "-c", "1", validated_ip],
-        capture_output=True,
-        text=True,
-        timeout=5,
-        check=False,
-    )
+    try:
+        process = subprocess.run(
+            ["ping", "-c", "1", validated_ip],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        response = make_response("<pre>Timeout ao executar ping.</pre>", 504)
+        response.headers["Content-Type"] = "text/html; charset=utf-8"
+        return response
+
     output = escape(process.stdout or process.stderr)
-    return f"<pre>{output}</pre>"
+    response = make_response(f"<pre>{output}</pre>")
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
 
 
 @app.route("/debug")
@@ -59,5 +69,5 @@ def comente():
 
 if __name__ == "__main__":
     if os.environ.get("APP_ENV", "").lower() == "production":
-        raise RuntimeError("Use um servidor WSGI em produção (ex.: gunicorn).")
+        raise RuntimeError("Use um servidor WSGI em produção (e.g., gunicorn).")
     app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
