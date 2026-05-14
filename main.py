@@ -4,9 +4,10 @@ import subprocess
 import ipaddress
 from flask import Flask, request, make_response
 from markupsafe import escape
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
+DUMMY_PASSWORD_HASH = generate_password_hash("invalid-password-for-timing-mitigation")
 
 
 def autenticar_usuario(username, password):
@@ -16,13 +17,12 @@ def autenticar_usuario(username, password):
     cursor.execute(query, (username,))
     result = cursor.fetchone()
     conn.close()
-    if not result:
-        return False
-    stored_password_hash = result[0]
+    stored_password_hash = result[0] if result else DUMMY_PASSWORD_HASH
     try:
-        return check_password_hash(stored_password_hash, password)
+        password_matches = check_password_hash(stored_password_hash, password)
     except ValueError:
         return False
+    return bool(result) and password_matches
 
 
 @app.route("/ping")
@@ -40,7 +40,7 @@ def ping():
         timeout=5,
         check=False,
     )
-    output = process.stdout or process.stderr
+    output = escape(process.stdout or process.stderr)
     return f"<pre>{output}</pre>"
 
 
@@ -58,4 +58,6 @@ def comente():
 
 
 if __name__ == "__main__":
+    if os.environ.get("FLASK_ENV", "").lower() == "production":
+        raise RuntimeError("Use um servidor WSGI em produção (ex.: gunicorn).")
     app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
